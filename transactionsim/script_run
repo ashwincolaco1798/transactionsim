@@ -1,0 +1,1 @@
+java -classpath /home/yap/tippers/transactionsim/target/classes:/home/yap/.m2/repository/org/postgresql/postgresql/42.6.0/postgresql-42.6.0.jar:/hyap/.m2/repository/org/checkerframework/checker-qual/3.31.0/checker-qual-3.31.0.jar:/home/yap/.m2/repository/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar com.yap.project.App
