@@ -30,7 +30,7 @@ public class TransactionSender extends Thread {
             // Register the JDBC driver
             Class.forName("org.postgresql.Driver");
             // Open a connection
-            String url = "jdbc:postgresql://localhost:5432/CS223Proj1";
+            String url = "jdbc:postgresql://localhost:5432/projtemp";
             String user = "postgres";
             String password = "testadmin123";
             connection = DriverManager.getConnection(url, user, password);
