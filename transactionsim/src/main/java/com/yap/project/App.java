@@ -31,15 +31,17 @@ public class App
         // t3.start();
         // t4.start();
         // t5.start();
-
-        for(int threadCount = 0; threadCount < 100; threadCount++)
+        ThreadSync syncObj = new ThreadSync();
+        int numberOfThreads = 100;
+        for(int threadCount = 0; threadCount < numberOfThreads; threadCount++)
         {
             String fileInputName = "/home/yap/tippers/project1/MixedSQLCommand/low_concurrency/MPL_100/Process_"+threadCount+".txt";
             System.out.println(fileInputName);
             String queryResponseName = "queryResponseThread_"+threadCount;
             String insertResponseName = "insertResponseThread_"+ threadCount;
             String commitTimesName = "commitTimeThread_"+threadCount;
-            TransactionSender sender = new TransactionSender(5, fileInputName, Connection.TRANSACTION_READ_COMMITTED, queryResponseName, insertResponseName, commitTimesName);
+            TransactionSender sender = new TransactionSender(5, fileInputName, Connection.TRANSACTION_REPEATABLE_READ , queryResponseName, 
+            insertResponseName, commitTimesName,syncObj, numberOfThreads);
             sender.start();
         }
     }

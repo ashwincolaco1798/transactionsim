@@ -14,12 +14,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.prefs.InvalidPreferencesFormatException;
 
+import org.apache.commons.collections4.MultiMap;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.time.StopWatch;
 import org.postgresql.*;
+
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
 
 public class TransactionSender extends Thread {
 
@@ -29,8 +36,11 @@ public class TransactionSender extends Thread {
     String queryResponseFile;
     String insertResponseFile;
     String commitFile;
+    ThreadSync syncObject;
+    int numberOfThreads;
 
-    TransactionSender(int numberOfTransactions, String filePath, int isolationLevel, String queryResponseFile, String insertResponseFile, String commitFile){
+    TransactionSender(int numberOfTransactions, String filePath, int isolationLevel, String queryResponseFile, 
+    String insertResponseFile, String commitFile, ThreadSync syncObject, int numberOfThreads){
 
         this.numberOfTransactions = numberOfTransactions;
         this.filePath = filePath;
@@ -38,6 +48,8 @@ public class TransactionSender extends Thread {
         this.queryResponseFile = queryResponseFile;
         this.insertResponseFile = insertResponseFile;
         this.commitFile = commitFile;
+        this.syncObject = syncObject;
+        this.numberOfThreads = numberOfThreads;
     }
 
 
@@ -46,9 +58,9 @@ public class TransactionSender extends Thread {
 
         Statement statement = null;
 
-        List<Double> queryResponseTimes = new ArrayList<Double>();
-        List<Double> insertResponseTimes = new ArrayList<Double>();
-        List<Double> commitTimes = new ArrayList<Double>();
+        List<Long> queryResponseTimes = new ArrayList<Long>();
+        List<Long> insertResponseTimes = new ArrayList<Long>();
+        List<Long> commitTimes = new ArrayList<Long>();
         StopWatch watchClock = new StopWatch();
         try {
             // Register the JDBC driver
@@ -61,44 +73,66 @@ public class TransactionSender extends Thread {
             // Test the connection
             
             Scanner scanner = new Scanner(new File(filePath));
+            List<Long> incomingTimes = new ArrayList<Long>();
+            List<String> incomingOperations = new ArrayList<String>();
+            while(scanner.hasNextLine())
+            {
+                String queryUnprocessed = scanner.nextLine();
+                String parameters[] = queryUnprocessed.split("\\$");
+                long timeValue = Long.parseLong(parameters[0]);
+                incomingTimes.add(timeValue);
+                incomingOperations.add(parameters[1]);
+            }
+            //need to add synchronizer here
+
+            syncObject.increment();
+            while(syncObject.get()<numberOfThreads)
+            {
+                System.out.println(syncObject.get());
+                continue;
+            }
+            System.out.println("Breakout");
             connection.setTransactionIsolation(isolationLevel);
             watchClock.reset();
             watchClock.start();
             connection.setAutoCommit(false);
+            statement = connection.createStatement();
             
-            while(scanner.hasNextLine())
+            for(int counterTotal = 0; counterTotal < incomingTimes.size(); counterTotal+=5)
             {
-                List<Double> queryIncomingTime = new ArrayList<Double>();
-                List<Double> insertIncomingTime = new ArrayList<Double>();
+                
+                List<Long> queryIncomingTime = new ArrayList<Long>();
+                List<Long> insertIncomingTime = new ArrayList<Long>();
                 for(int operationCounter = 0; operationCounter < numberOfTransactions; operationCounter++)
                 {
                     
-                    statement = connection.createStatement();
-                    if(scanner.hasNextLine()){
-                        String queryUnprocessed = scanner.nextLine();
-                        String parameters[] = queryUnprocessed.split("\\$");
-                        System.out.println(Long.parseLong(parameters[0]));
-                        while((Long.parseLong(parameters[0])) > watchClock.getTime()){
-                            System.out.println(watchClock.getTime());
-                            continue;
-                        }
-                        //System.out.println(parameters[1].substring(0, parameters[1].indexOf(' ')));
-                        if(parameters[1].substring(0, parameters[1].indexOf(' ')).equals("SELECT"))
-                        {
-                            queryIncomingTime.add(Double.parseDouble(parameters[0]));
-                        }
-                        else
-                        {
-                            insertIncomingTime.add(Double.parseDouble(parameters[0]));
-                        }
-                        statement = connection.createStatement();
-                        statement.execute(parameters[1]);
+                    
+                    if(operationCounter+counterTotal >= incomingTimes.size()){
+                        break;
                     }
+                    long currentTime = incomingTimes.get(counterTotal+operationCounter);
+                    String currentOperation = incomingOperations.get(counterTotal+operationCounter);
+                    //System.out.println(Long.parseLong(parameters[0]));
+                    while(incomingTimes.get(counterTotal+operationCounter) > watchClock.getTime()){
+                        //System.out.println(watchClock.getTime());
+                        continue;
+                    }
+                    //System.out.println(parameters[1].substring(0, parameters[1].indexOf(' ')));
+                    if(currentOperation.substring(0, currentOperation.indexOf(' ')).equals("SELECT"))
+                    {
+                        queryIncomingTime.add(currentTime);
+                    }
+                    else
+                    {
+                        insertIncomingTime.add(currentTime);
+                    }
+                    
+                    statement.execute(currentOperation);
                 }
                 
                 // Commit the transaction
-                //connection.commit();
-                double commitTime = watchClock.getTime();
+                connection.commit();
+                long commitTime = watchClock.getTime();
                 commitTimes.add(commitTime);
                 for(int insertOperations = 0; insertOperations < insertIncomingTime.size();insertOperations++)
                 {
