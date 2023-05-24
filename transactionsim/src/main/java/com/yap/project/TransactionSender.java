@@ -30,7 +30,7 @@ import com.google.common.collect.Multimap;
 
 public class TransactionSender extends Thread {
 
-    int numberOfTransactions;
+    int numberOfOperations;
     String filePath;
     int isolationLevel;
     String queryResponseFile;
@@ -38,18 +38,21 @@ public class TransactionSender extends Thread {
     String commitFile;
     ThreadSync syncObject;
     int numberOfThreads;
+    StopWatch watchClock;
+    Producer producer;
 
-    TransactionSender(int numberOfTransactions, String filePath, int isolationLevel, String queryResponseFile, 
-    String insertResponseFile, String commitFile, ThreadSync syncObject, int numberOfThreads){
+    TransactionSender(int numberOfOperations,int isolationLevel, String queryResponseFile, 
+    String insertResponseFile, String commitFile, ThreadSync syncObject, int numberOfThreads, StopWatch watchClock, Producer producer){
 
-        this.numberOfTransactions = numberOfTransactions;
-        this.filePath = filePath;
+        this.numberOfOperations = numberOfOperations;
         this.isolationLevel = isolationLevel;
         this.queryResponseFile = queryResponseFile;
         this.insertResponseFile = insertResponseFile;
         this.commitFile = commitFile;
         this.syncObject = syncObject;
         this.numberOfThreads = numberOfThreads;
+        this.watchClock = watchClock;
+        this.producer = producer;
     }
 
 
@@ -61,7 +64,6 @@ public class TransactionSender extends Thread {
         List<Long> queryResponseTimes = new ArrayList<Long>();
         List<Long> insertResponseTimes = new ArrayList<Long>();
         List<Long> commitTimes = new ArrayList<Long>();
-        StopWatch watchClock = new StopWatch();
         try {
             // Register the JDBC driver
             Class.forName("org.postgresql.Driver");
@@ -70,54 +72,39 @@ public class TransactionSender extends Thread {
             String user = "postgres";
             String password = "testadmin123";
             connection = DriverManager.getConnection(url, user, password);
-            // Test the connection
             
-            Scanner scanner = new Scanner(new File(filePath));
-            List<Long> incomingTimes = new ArrayList<Long>();
-            List<String> incomingOperations = new ArrayList<String>();
-            while(scanner.hasNextLine())
-            {
-                String queryUnprocessed = scanner.nextLine();
-                String parameters[] = queryUnprocessed.split("\\$");
-                long timeValue = Long.parseLong(parameters[0]);
-                incomingTimes.add(timeValue);
-                incomingOperations.add(parameters[1]);
-            }
-            //need to add synchronizer here
-
             syncObject.increment();
             while(syncObject.get()<numberOfThreads)
             {
                 System.out.println(syncObject.get());
                 continue;
-            }
+            }//all threads should reach here at the same time
             System.out.println("Breakout");
+
             connection.setTransactionIsolation(isolationLevel);
-            watchClock.reset();
-            watchClock.start();
             connection.setAutoCommit(false);
             statement = connection.createStatement();
+
             
-            for(int counterTotal = 0; counterTotal < incomingTimes.size(); counterTotal+=5)
+            while(Producer.getCursorValue()!=-1)
             {
+                try{
                 
                 List<Long> queryIncomingTime = new ArrayList<Long>();
                 List<Long> insertIncomingTime = new ArrayList<Long>();
-                for(int operationCounter = 0; operationCounter < numberOfTransactions; operationCounter++)
+                for(int operationCounter = 0; operationCounter < numberOfOperations; operationCounter++)
                 {
                     
-                    
-                    if(operationCounter+counterTotal >= incomingTimes.size()){
-                        break;
-                    }
-                    long currentTime = incomingTimes.get(counterTotal+operationCounter);
-                    String currentOperation = incomingOperations.get(counterTotal+operationCounter);
-                    //System.out.println(Long.parseLong(parameters[0]));
-                    while(incomingTimes.get(counterTotal+operationCounter) > watchClock.getTime()){
-                        //System.out.println(watchClock.getTime());
-                        continue;
-                    }
-                    //System.out.println(parameters[1].substring(0, parameters[1].indexOf(' ')));
+                    int currentCursor = Producer.getNextCursor();
+                    if(currentCursor < 0)
+                    break;
+                    long currentTime = Producer.incomingTimes.get(currentCursor);
+                    String currentOperation = Producer.incomingOperations.get(currentCursor);
+                    sleep(currentTime>watchClock.getTime()?currentTime-watchClock.getTime():0);
+                    // while(currentTime > watchClock.getTime()){
+                    //     continue;
+                    // }
+                    // System.out.println(parameters[1].substring(0, parameters[1].indexOf(' ')));
                     if(currentOperation.substring(0, currentOperation.indexOf(' ')).equals("SELECT"))
                     {
                         queryIncomingTime.add(currentTime);
@@ -131,7 +118,10 @@ public class TransactionSender extends Thread {
                 }
                 
                 // Commit the transaction
+                
                 connection.commit();
+                
+                
                 long commitTime = watchClock.getTime();
                 commitTimes.add(commitTime);
                 for(int insertOperations = 0; insertOperations < insertIncomingTime.size();insertOperations++)
@@ -141,6 +131,11 @@ public class TransactionSender extends Thread {
                 for(int queryOperations = 0; queryOperations < queryIncomingTime.size(); queryOperations++)
                 {
                     queryResponseTimes.add(commitTime - queryIncomingTime.get(queryOperations));
+                }
+            }
+                catch(SQLException e)
+                {
+                    //System.out.println("Transaction Aborted");
                 }
                 //Need to write throughput
             }
@@ -156,7 +151,7 @@ public class TransactionSender extends Thread {
             try {
                 FileUtils.writeLines(queryFileResponseTimes, queryResponseTimes, false);
                 FileUtils.writeLines(insertFileResponseTimes, insertResponseTimes, false);
-                FileUtils.writeLines(commitFileTimes, commitTimes, false);
+                FileUtils.writeLines(commitFileTimes, commitTimes, true);
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
