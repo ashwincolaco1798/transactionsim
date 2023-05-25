@@ -2,54 +2,63 @@ package com.yap.project;
 
 import java.io.FileNotFoundException;
 import java.sql.Connection;
+import java.sql.SQLException;
 
 import org.apache.commons.lang3.time.StopWatch;
-
-/**
- * Hello world!
- *
+/*
+ * Authors: Ashwin Gerard Colaco, Yinan Zhou, Pratyoy Das
  */
-
 public class App 
 {
-    public static void main( String[] args ) throws FileNotFoundException
+    public static void main( String[] args ) throws FileNotFoundException, ClassNotFoundException, SQLException, InterruptedException
     {
-        // TransactionSender t1 = new TransactionSender(5, 
-        // "/home/yap/tippers/project1/MixedSQLCommand/low_concurrency/MPL_5/Process_0.txt",
-        // Connection.TRANSACTION_READ_COMMITTED, "x1", "y1","z1");
-        // TransactionSender t2 = new TransactionSender(5, 
-        // "/home/yap/tippers/project1/MixedSQLCommand/low_concurrency/MPL_5/Process_1.txt",
-        // Connection.TRANSACTION_READ_COMMITTED, "x2", "y2","z2");
-        // TransactionSender t3 = new TransactionSender(5, 
-        // "/home/yap/tippers/project1/MixedSQLCommand/low_concurrency/MPL_5/Process_2.txt",
-        // Connection.TRANSACTION_READ_COMMITTED, "x3", "y3","z3");
-        // TransactionSender t4 = new TransactionSender(5, 
-        // "/home/yap/tippers/project1/MixedSQLCommand/low_concurrency/MPL_5/Process_3.txt",
-        // Connection.TRANSACTION_READ_COMMITTED, "x4", "y4","z4");
-        // TransactionSender t5 = new TransactionSender(5, 
-        // "/home/yap/tippers/project1/MixedSQLCommand/low_concurrency/MPL_5/Process_4.txt",
-        // Connection.TRANSACTION_READ_COMMITTED, "x5", "y5","z5");
-        // t1.start();
-        // t2.start();
-        // t3.start();
-        // t4.start();
-        // t5.start();
-        int numberOfThreads = 200;
-        int numberOfOperations = 5;
-        StopWatch watchClock = new StopWatch();
-        ThreadSync syncObj = new ThreadSync(watchClock, numberOfThreads);
-        
-        
-        Producer producer = new Producer("/home/yap/tippers/project1/MixedSQLCommand/low_concurrency/mixed_commands.txt");
-        for(int threadCount = 0; threadCount < numberOfThreads; threadCount++)
+        int transactionSizeArray[] = {2,5,10};
+        int mplLevelArray[] = {5,50,100,150,200,300};
+        int isolationModeArray[] = {Connection.TRANSACTION_READ_COMMITTED,Connection.TRANSACTION_REPEATABLE_READ,Connection.TRANSACTION_SERIALIZABLE};
+        String isolationModeStrArray[] = {"TRANSACTION_READ_COMMITTED","TRANSACTION_REPEATABLE_READ","TRANSACTION_SERIALIZABLE"};
+        Producer producer = new Producer("/home/yap/tippers/project1/MixedSQLCommand/high_concurrency/mixed_commands.txt");
+        for(int transactionSizeExptCounter = 0; transactionSizeExptCounter < 3; transactionSizeExptCounter++)
         {
-            String queryResponseName = "/home/yap/tippers/project1/MixedSQLCommand/low_concurrency/MPL_"+numberOfThreads+"/Serializable/queryResponseThread_"+threadCount;
-            String insertResponseName = "/home/yap/tippers/project1/MixedSQLCommand/low_concurrency/MPL_"+numberOfThreads+"/Serializable/insertResponseThread_"+ threadCount;
-            String commitTimesName = "/home/yap/tippers/project1/MixedSQLCommand/low_concurrency/MPL_"+numberOfThreads+"/Serializable/commitTimesMerged";
-            TransactionSender sender = new TransactionSender(numberOfOperations, Connection.TRANSACTION_READ_COMMITTED , queryResponseName, 
-            insertResponseName, commitTimesName,syncObj, numberOfThreads, watchClock, producer);
-            sender.start();
+            int numberOfOperations = transactionSizeArray[transactionSizeExptCounter];
+            for(int mplLevelExptCounter = 0; mplLevelExptCounter < 6;mplLevelExptCounter++)
+            {
+                int numberOfThreads = mplLevelArray[mplLevelExptCounter];
+                for(int isolationLevelExptCounter = 0; isolationLevelExptCounter < 3; isolationLevelExptCounter++)
+                {
+                    Producer.cursorID = 0;
+                    new ResetDB();
+                    System.out.println("Starting experiment");
+                    StopWatch watchClock = new StopWatch();
+                    ThreadSync syncObj = new ThreadSync(watchClock, numberOfThreads);
+                    int isolationLevel = isolationModeArray[isolationLevelExptCounter];
+                    String isolation = isolationModeStrArray[isolationLevelExptCounter];
+                    
+                    Thread sender[] = new Thread[numberOfThreads];
+                    
+                    for(int threadCount = 0; threadCount < numberOfThreads; threadCount++)
+                    {
+                        String queryResponseName = "/home/yap/tippers/Results/High Concurrency/"+numberOfOperations+"/MPL_"+numberOfThreads+"/"+isolation+"/queryResponseThread_"+threadCount;
+                        String insertResponseName = "/home/yap/tippers/Results/High Concurrency/"+numberOfOperations+"/MPL_"+numberOfThreads+"/"+isolation+"/insertResponseThread_"+ threadCount;
+                        String commitTimesName = "/home/yap/tippers/Results/High Concurrency/"+numberOfOperations+"/MPL_"+numberOfThreads+"/"+isolation+"/commitTimeThread_" + threadCount;
+                        sender[threadCount] = new TransactionSender(numberOfOperations, isolationLevel , queryResponseName, 
+                        insertResponseName, commitTimesName,syncObj, numberOfThreads, watchClock, producer);
+                        sender[threadCount].start();
+                    }
+                    watchClock.start();
+                    for(int threadCount = 0; threadCount < numberOfThreads; threadCount++)
+                    {
+                        sender[threadCount].join();
+                    }
+                
+
+                }
+            }
+
         }
+        
+        
+        
+        
         
     }
 }

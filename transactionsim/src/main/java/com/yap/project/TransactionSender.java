@@ -73,13 +73,6 @@ public class TransactionSender extends Thread {
             String password = "testadmin123";
             connection = DriverManager.getConnection(url, user, password);
             
-            syncObject.increment();
-            while(syncObject.get()<numberOfThreads)
-            {
-                System.out.println(syncObject.get());
-                continue;
-            }//all threads should reach here at the same time
-            System.out.println("Breakout");
 
             connection.setTransactionIsolation(isolationLevel);
             connection.setAutoCommit(false);
@@ -94,13 +87,19 @@ public class TransactionSender extends Thread {
                 List<Long> insertIncomingTime = new ArrayList<Long>();
                 for(int operationCounter = 0; operationCounter < numberOfOperations; operationCounter++)
                 {
+
+                    long systemTime = watchClock.getTime();
+                    if(systemTime>120000)
+                    {
+                        throw new Exception();
+                    }
                     
                     int currentCursor = Producer.getNextCursor();
                     if(currentCursor < 0)
                     break;
                     long currentTime = Producer.incomingTimes.get(currentCursor);
                     String currentOperation = Producer.incomingOperations.get(currentCursor);
-                    sleep(currentTime>watchClock.getTime()?currentTime-watchClock.getTime():0);
+                    sleep(currentTime>systemTime?currentTime-systemTime:0);
                     // while(currentTime > watchClock.getTime()){
                     //     continue;
                     // }
@@ -151,7 +150,7 @@ public class TransactionSender extends Thread {
             try {
                 FileUtils.writeLines(queryFileResponseTimes, queryResponseTimes, false);
                 FileUtils.writeLines(insertFileResponseTimes, insertResponseTimes, false);
-                FileUtils.writeLines(commitFileTimes, commitTimes, true);
+                FileUtils.writeLines(commitFileTimes, commitTimes, false);
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();

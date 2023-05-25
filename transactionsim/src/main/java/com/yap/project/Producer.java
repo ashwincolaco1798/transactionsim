@@ -2,6 +2,10 @@ package com.yap.project;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -12,8 +16,9 @@ public class Producer {
     static List<Long> incomingTimes;
     static int cursorID;
 
-    Producer(String workloadFileName) throws FileNotFoundException
+    Producer(String workloadFileName) throws FileNotFoundException, ClassNotFoundException, SQLException
     {
+       
         incomingOperations = new ArrayList<String>();
         incomingTimes = new ArrayList<Long>();
         Scanner scanner = new Scanner(new File(workloadFileName));
@@ -26,6 +31,8 @@ public class Producer {
             incomingOperations.add(parameters[1]);
         }
         cursorID = 0;
+        
+
 
     }
 
