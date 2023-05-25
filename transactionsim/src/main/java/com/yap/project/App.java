@@ -44,6 +44,7 @@ public class App
                         insertResponseName, commitTimesName,syncObj, numberOfThreads, watchClock, producer);
                         sender[threadCount].start();
                     }
+                    watchClock.reset();
                     watchClock.start();
                     for(int threadCount = 0; threadCount < numberOfThreads; threadCount++)
                     {

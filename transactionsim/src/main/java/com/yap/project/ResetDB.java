@@ -9,11 +9,10 @@ public class ResetDB {
 
     ResetDB() throws ClassNotFoundException, SQLException{
         Connection connection = null;
-
         Statement statement = null;
         Class.forName("org.postgresql.Driver");
             // Open a connection
-        String url = "jdbc:postgresql://localhost:5432/mpl100";
+        String url = "jdbc:postgresql://localhost:5432/high_concurrency";
         String user = "postgres";
         String password = "testadmin123";
         connection = DriverManager.getConnection(url, user, password);

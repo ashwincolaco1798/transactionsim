@@ -68,7 +68,7 @@ public class TransactionSender extends Thread {
             // Register the JDBC driver
             Class.forName("org.postgresql.Driver");
             // Open a connection
-            String url = "jdbc:postgresql://localhost:5432/mpl100";
+            String url = "jdbc:postgresql://localhost:5432/high_concurrency";
             String user = "postgres";
             String password = "testadmin123";
             connection = DriverManager.getConnection(url, user, password);
@@ -89,7 +89,7 @@ public class TransactionSender extends Thread {
                 {
 
                     long systemTime = watchClock.getTime();
-                    if(systemTime>120000)
+                    if(systemTime>60000)
                     {
                         throw new Exception();
                     }
@@ -99,6 +99,8 @@ public class TransactionSender extends Thread {
                     break;
                     long currentTime = Producer.incomingTimes.get(currentCursor);
                     String currentOperation = Producer.incomingOperations.get(currentCursor);
+                    sleep(currentTime>systemTime?currentTime-systemTime:0);
+                    sleep(currentTime>systemTime?currentTime-systemTime:0);
                     sleep(currentTime>systemTime?currentTime-systemTime:0);
                     // while(currentTime > watchClock.getTime()){
                     //     continue;
