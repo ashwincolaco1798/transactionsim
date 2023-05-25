@@ -100,8 +100,6 @@ public class TransactionSender extends Thread {
                     long currentTime = Producer.incomingTimes.get(currentCursor);
                     String currentOperation = Producer.incomingOperations.get(currentCursor);
                     sleep(currentTime>systemTime?currentTime-systemTime:0);
-                    sleep(currentTime>systemTime?currentTime-systemTime:0);
-                    sleep(currentTime>systemTime?currentTime-systemTime:0);
                     // while(currentTime > watchClock.getTime()){
                     //     continue;
                     // }
