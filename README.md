@@ -23,7 +23,7 @@ java -classpath /path/to/install/transactionsim/target/classes:~/.m2/repository/
 
 Install your favourite python version 3.7 or higher(I use 3.10.x)
 
-Create a venv using ```sh python3 -m venv venv``` or don't at your own risk
+Create a venv using ```python3 -m venv venv``` or don't at your own risk
 
 Install dependencies by
 ```sh
